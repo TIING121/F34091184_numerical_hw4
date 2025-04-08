@@ -1,0 +1,155 @@
+import numpy as np
+from scipy.integrate import quad
+
+print("\n--------------------第一題--------------------")
+
+def f1(x):
+    return np.sin(4 * x) * np.exp(x)
+
+def q1_composite_methods(h=0.1):
+    a, b = 1, 2
+    x = np.arange(a, b + h, h)
+    trapz = h / 2 * (f1(x[0]) + 2 * np.sum(f1(x[1:-1])) + f1(x[-1]))
+    simp = h / 3 * (f1(x[0]) + 4 * np.sum(f1(x[1:-1:2])) + 2 * np.sum(f1(x[2:-1:2])) + f1(x[-1]))
+    midpoints = x[:-1] + h / 2
+    mid = h * np.sum(f1(midpoints))
+    return trapz, simp, mid
+
+q1 = q1_composite_methods()
+
+print(" Composite trapezoidal rule :  ", q1[0])
+print(" Composite Simpsons’ method :  ", q1[1])
+print(" Composite midpoint rule :  ", q1[2])
+
+print()
+print("\n--------------------第二題--------------------")
+
+def f2(x):
+    return x**2 * np.log(x)
+
+def q2_gaussian(n):
+    if n == 3:
+        xi = np.array([-0.7745966692, 0, 0.7745966692])
+        ci = np.array([0.5555555556, 0.8888888889, 0.5555555556])
+    elif n == 4:
+        xi = np.array([-0.8611363116, -0.3399810436, 0.3399810436, 0.8611363116])
+        ci = np.array([0.3478548451, 0.6521451549, 0.6521451549, 0.3478548451])
+    else:
+        raise ValueError("Only supports n=3 or n=4")
+    x = 0.25 * xi + 1.25
+    fx = f2(x)
+    return 0.25 * np.sum(ci * fx)
+
+def q2_exact():
+    result, _ = quad(f2, 1, 1.5)
+    return result
+
+q2_3 = q2_gaussian(3)
+q2_4 = q2_gaussian(4)
+q2_ex = q2_exact()
+q2_err_3 = abs(q2_3 - q2_ex)
+q2_err_4 = abs(q2_4 - q2_ex)
+
+print(" Gaussian Quadrature with n = 3 :  ", q2_3)
+print(" Gaussian Quadrature with n = 4 :  ", q2_4)
+print(" Absolute error between Gaussian Quadrature with n = 3 and exact :  ", q2_err_3)
+print(" Absolute error between Gaussian Quadrature with n = 4 and exact :  ", q2_err_4)
+
+print()
+print("\n--------------------第三題--------------------")
+
+def f3(x, y):
+    return 2 * y * np.sin(x) + np.cos(x)**2
+
+def q3a_variable_simpson(n=4, m=4):
+    a, b = 0, np.pi / 4
+    hx = (b - a) / n
+    x = np.linspace(a, b, n + 1)
+    total = 0
+
+    for i in range(n + 1):
+        xi = x[i]
+        y_lower = np.sin(xi)
+        y_upper = np.cos(xi)
+        hy = (y_upper - y_lower) / m
+        y = np.linspace(y_lower, y_upper, m + 1)
+        fy = f3(xi, y)
+        inner = fy[0] + 4 * np.sum(fy[1:-1:2]) + 2 * np.sum(fy[2:-1:2]) + fy[-1]
+        inner *= hy / 3
+        weight = 1 if i == 0 or i == n else 4 if i % 2 == 1 else 2
+        total += weight * inner
+
+    return hx / 3 * total
+
+def q3b_variable_gaussian(n=3, m=3):
+    x_nodes = np.array([-0.7745966692, 0.0, 0.7745966692])
+    x_weights = np.array([0.5555555556, 0.8888888889, 0.5555555556])
+    y_nodes = x_nodes.copy()
+    y_weights = x_weights.copy()
+
+    a, b = 0, np.pi / 4
+    mid_x = (b + a) / 2
+    half_range_x = (b - a) / 2
+    total = 0
+
+    for i in range(n):
+        xi = half_range_x * x_nodes[i] + mid_x
+        wx = x_weights[i]
+        y_low = np.sin(xi)
+        y_high = np.cos(xi)
+        mid_y = (y_high + y_low) / 2
+        half_range_y = (y_high - y_low) / 2
+        inner = 0
+        for j in range(m):
+            yj = half_range_y * y_nodes[j] + mid_y
+            wy = y_weights[j]
+            inner += wy * f3(xi, yj)
+        total += wx * half_range_y * inner
+
+    return half_range_x * total
+
+def q3c_variable_exact():
+    def inner_integral(x):
+        result, _ = quad(lambda y: f3(x, y), np.sin(x), np.cos(x))
+        return result
+    result, _ = quad(inner_integral, 0, np.pi / 4)
+    return result
+
+q3a = q3a_variable_simpson()
+q3b = q3b_variable_gaussian()
+q3c = q3c_variable_exact()
+q3a_err = abs(q3a - q3c)
+q3b_err = abs(q3b - q3c)
+
+print(" (a) Simpson’s rule for n = 4 and m =4 :  ", q3a)
+print(" (b) Gaussian Quadrature for n = 3 and m = 3 :  ", q3b)
+print(" (c) Exact value :  ", q3c)
+print("     Absolute error between Simpson’s rule and exact :  ", q3a_err)
+print("     Absolute error between Gaussian Quadrature and exact :  ", q3b_err)
+
+print()
+print("\n--------------------第四題--------------------")
+
+def f4a(x):
+    return np.where(x == 0, 0, np.sin(x) * x**(-1/4))
+
+def f4b(t):
+    return np.where(t == 0, 0, t**2 * np.sin(1 / t))
+
+def q4_improper_simpson():
+    x = np.linspace(1e-6, 1, 5)
+    h = x[1] - x[0]
+    fx = f4a(x)
+    q4a = h / 3 * (fx[0] + 4 * fx[1] + 2 * fx[2] + 4 * fx[3] + fx[4])
+
+    t = np.linspace(1e-6, 1, 5)
+    h = t[1] - t[0]
+    ft = f4b(t)
+    q4b = h / 3 * (ft[0] + 4 * ft[1] + 2 * ft[2] + 4 * ft[3] + ft[4])
+
+    return q4a, q4b
+
+q4 = q4_improper_simpson()
+
+print(" (a) Improper integral ∫x^(-1/4)sin(x)dx :  ", q4[0])
+print(" (b) Improper integral ∫x^(-4)sin(x)dx by using the transform t=x^(-1) :  ", q4[1])
